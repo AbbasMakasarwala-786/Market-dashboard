@@ -3,8 +3,9 @@ import React from 'react'
 
 const Home = () => {
   return (
-    <div className='flex justify-center items-center h-screen'>
-      <Button>click me</Button>
+    <div className='flex min-h-screen home-wrapper'>
+      {/* custom class element */}
+      Home
     </div>
   )
 }
