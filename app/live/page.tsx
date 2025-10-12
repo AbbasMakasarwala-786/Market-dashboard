@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
-// import Plotly from 'plotly.js-dist-min';
+import Plotly from 'plotly.js-dist-min';
 
 export default function StockPredictionChart() {
-  const [symbol, setSymbol] = useState('AAPL');
-  const [inputSymbol, setInputSymbol] = useState('AAPL');
+  const [symbol, setSymbol] = useState('ADANIENT.NS');
+  const [inputSymbol, setInputSymbol] = useState('ADANIENT.NS');
   const [isConnected, setIsConnected] = useState(false);
   const [historicalData, setHistoricalData] = useState([]);
   const [predictedData, setPredictedData] = useState([]);
@@ -197,7 +197,7 @@ export default function StockPredictionChart() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+    <div className="min-h-screen bg-gradient-to-br p-8 bg:black">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
@@ -220,13 +220,13 @@ export default function StockPredictionChart() {
               value={inputSymbol}
               onChange={(e) => setInputSymbol(e.target.value.toUpperCase())}
               onKeyPress={(e) => e.key === 'Enter' && handleSymbolChange()}
-              placeholder="Enter stock symbol (e.g., AAPL)"
+              placeholder="Enter stock symbol (e.g., ADANIENT.NS)"
               className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-gray-800"
             />
             <button
               onClick={handleSymbolChange}
               disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+              className="px-6 py-2 bg-gray-900 text-white rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-400"
             >
               {loading ? 'Loading...' : 'Load Symbol'}
             </button>
