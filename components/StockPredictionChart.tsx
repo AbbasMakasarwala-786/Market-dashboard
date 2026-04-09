@@ -1,6 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Plotly from "plotly.js-dist-min";
 import { STOCK_LIST } from "@/lib/constants";
+import { useMoney, useStock, useTrades } from "@/store";
+import { CASH_KEY, type Stock } from "@/store/types";
+
+const randomInitialCash = () =>
+  50_000 + Math.floor(Math.random() * 450_000);
 
 interface HistoricalDataPoint {
   timestamp: Date;
@@ -46,30 +51,60 @@ export default function StockPredictionChart() {
   });
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [tradeQty, setTradeQty] = useState<number>(1);
+  const [walletReady, setWalletReady] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const plotRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    loadStockData(symbol);
 
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
+  const cashBalance = useMoney((s) => s.getStock(CASH_KEY));
+  const sharesHeld = useStock((s) => s.getStock(symbol as Stock));
+  const positionCostBasis = useTrades((s) => s.getStock(symbol as Stock));
+
+  useEffect(() => {
+    const finish = () => {
+      const { data, change } = useMoney.getState();
+      if (Object.keys(data).length === 0) {
+        change(CASH_KEY, randomInitialCash());
       }
+      setWalletReady(true);
     };
-  }, [symbol]);
 
-  useEffect(() => {
-    if (
-      plotRef.current &&
-      (historicalData.length > 0 ||
-        recentPredictions.length > 0 ||
-        livePredictions.length > 0)
-    ) {
-      updateChart();
+    if (useMoney.persist.hasHydrated()) {
+      finish();
+    } else {
+      return useMoney.persist.onFinishHydration(finish);
     }
-  }, [historicalData, recentPredictions, livePredictions]);
+  }, []);
 
-  const loadStockData = async (stockSymbol: string) => {
+  const handleBuy = () => {
+    if (currentPrice === null || !walletReady) return;
+    const q = Math.max(1, Math.floor(tradeQty));
+    const cost = currentPrice * q;
+    const cash = useMoney.getState().getStock(CASH_KEY);
+    if (cost > cash + 1e-6) return;
+
+    useMoney.getState().subtract(CASH_KEY, cost);
+    useStock.getState().add(symbol as Stock, q);
+    useTrades.getState().add(symbol as Stock, cost);
+  };
+
+  const handleSell = () => {
+    if (currentPrice === null || !walletReady) return;
+    const q = Math.max(1, Math.floor(tradeQty));
+    const held = useStock.getState().getStock(symbol as Stock);
+    if (q > held) return;
+
+    const basisTotal = useTrades.getState().getStock(symbol as Stock);
+    const avgCost = held > 0 ? basisTotal / held : 0;
+    const basisClosed = avgCost * q;
+    const proceeds = currentPrice * q;
+
+    useTrades.getState().subtract(symbol as Stock, basisClosed);
+    useStock.getState().subtract(symbol as Stock, q);
+    useMoney.getState().add(CASH_KEY, proceeds);
+  };
+
+  const loadStockData = useCallback(async (stockSymbol: string) => {
     setLoading(true);
     setError(null);
 
@@ -88,7 +123,7 @@ export default function StockPredictionChart() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setLoading, setError])
 
   const fetchHistoricalData = async (stockSymbol: string) => {
     try {
@@ -376,6 +411,29 @@ export default function StockPredictionChart() {
     }
   };
 
+  useEffect(() => {
+    loadStockData(symbol);
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [loadStockData, symbol]);
+
+  useEffect(() => {
+    if (
+      plotRef.current &&
+      (historicalData.length > 0 ||
+        recentPredictions.length > 0 ||
+        livePredictions.length > 0)
+    ) {
+      updateChart();
+    }
+  }, [historicalData, recentPredictions, livePredictions, updateChart]);
+
+
+
   const priceChange =
     currentPrice && predictedPrice
       ? (((predictedPrice - currentPrice) / currentPrice) * 100).toFixed(2)
@@ -383,8 +441,33 @@ export default function StockPredictionChart() {
 
   const priceChangeNum = parseFloat(priceChange);
 
+  const qty = Math.max(1, Math.floor(tradeQty));
+  const marketValue =
+    currentPrice !== null && sharesHeld > 0
+      ? sharesHeld * currentPrice
+      : 0;
+  const avgBuyPrice =
+    sharesHeld > 0 ? positionCostBasis / sharesHeld : 0;
+  const unrealizedPl =
+    sharesHeld > 0 && currentPrice !== null
+      ? marketValue - positionCostBasis
+      : 0;
+  const expectedPlAtPredicted =
+    sharesHeld > 0 && predictedPrice !== null
+      ? sharesHeld * predictedPrice - positionCostBasis
+      : 0;
+  const stressLossToZero =
+    sharesHeld > 0 ? -positionCostBasis : 0;
+  const maxBuyQty =
+    currentPrice !== null && currentPrice > 0
+      ? Math.floor(cashBalance / currentPrice)
+      : 0;
+
+  const fmt = (n: number) =>
+    `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br p-8 bg-black">
+    <div className="min-h-screen bg-linear-to-br p-8 bg-black">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
@@ -467,6 +550,158 @@ export default function StockPredictionChart() {
             <p className="text-lg font-bold text-gray-800">
               {(stats.volume / 1000000).toFixed(2)}M
             </p>
+          </div>
+        </div>
+
+        {/* Paper trading */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-1">
+            Paper trading
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Cash is persisted in the wallet store. Buys and sells execute at the
+            live <span className="font-medium">current price</span>.{" "}
+            <span className="font-medium">Trades store</span> tracks cost basis
+            (₹ deployed in your open position for this symbol).
+          </p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label
+                    htmlFor="trade-qty"
+                    className="block text-xs font-medium text-gray-500 mb-1"
+                  >
+                    Quantity
+                  </label>
+                  <input
+                    id="trade-qty"
+                    type="number"
+                    min={1}
+                    value={tradeQty}
+                    onChange={(e) =>
+                      setTradeQty(
+                        Math.max(1, parseInt(e.target.value, 10) || 1),
+                      )
+                    }
+                    className="w-24 px-3 py-2 border-2 border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleBuy}
+                  disabled={
+                    !walletReady ||
+                    currentPrice === null ||
+                    qty > maxBuyQty ||
+                    maxBuyQty < 1
+                  }
+                  className="px-5 py-2 rounded-lg font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-45 disabled:cursor-not-allowed"
+                >
+                  Buy {qty}  spot
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSell}
+                  disabled={
+                    !walletReady ||
+                    currentPrice === null ||
+                    qty > sharesHeld ||
+                    sharesHeld < 1
+                  }
+                  className="px-5 py-2 rounded-lg font-semibold bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-45 disabled:cursor-not-allowed"
+                >
+                  Sell {qty}  spot
+                </button>
+              </div>
+              <div className="text-sm text-gray-600 space-y-1">
+                <p>
+                  <span className="text-gray-500">Cash balance:</span>{" "}
+                  <span className="font-semibold text-gray-900">
+                    {!walletReady
+                      ? "…"
+                      : fmt(cashBalance)}
+                  </span>
+                </p>
+                <p>
+                  <span className="text-gray-500">Shares held ({symbol}):</span>{" "}
+                  <span className="font-semibold text-gray-900">
+                    {sharesHeld.toLocaleString("en-IN")}
+                  </span>
+                </p>
+                <p>
+                  <span className="text-gray-500">Max affordable spot:</span>{" "}
+                  <span className="font-semibold text-gray-900">
+                    {currentPrice === null ? "—" : `${maxBuyQty} sh`}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">
+                P&amp;L overview ({symbol})
+              </h3>
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-gray-500">Avg buy (cost / sh)</dt>
+                  <dd className="font-mono text-gray-900">
+                    {sharesHeld < 1 ? "—" : fmt(avgBuyPrice)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-gray-500">Position cost basis</dt>
+                  <dd className="font-mono text-gray-900">
+                    {sharesHeld < 1 ? "—" : fmt(positionCostBasis)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-gray-500">Market value current</dt>
+                  <dd className="font-mono text-gray-900">
+                    {sharesHeld < 1 || currentPrice === null
+                      ? "—"
+                      : fmt(marketValue)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4 border-t border-gray-200 pt-2 mt-2">
+                  <dt className="text-gray-600 font-medium">
+                    Unrealized P&amp;L  spot
+                  </dt>
+                  <dd
+                    className={`font-mono font-semibold ${
+                      unrealizedPl > 0
+                        ? "text-emerald-600"
+                        : unrealizedPl < 0
+                          ? "text-rose-600"
+                          : "text-gray-700"
+                    }`}
+                  >
+                    {sharesHeld < 1 || currentPrice === null
+                      ? "—"
+                      : `${unrealizedPl >= 0 ? "+" : ""}${fmt(unrealizedPl)}`}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-gray-600 font-medium">
+                    Expected P&amp;L  predicted
+                  </dt>
+                  <dd
+                    className={`font-mono font-semibold ${
+                      expectedPlAtPredicted > 0
+                        ? "text-emerald-600"
+                        : expectedPlAtPredicted < 0
+                          ? "text-rose-600"
+                          : "text-gray-700"
+                    }`}
+                  >
+                    {sharesHeld < 1 || predictedPrice === null
+                      ? "—"
+                      : `${expectedPlAtPredicted >= 0 ? "+" : ""}${fmt(expectedPlAtPredicted)}`}
+                  </dd>
+                </div>
+              </dl>
+            </div>
           </div>
         </div>
 

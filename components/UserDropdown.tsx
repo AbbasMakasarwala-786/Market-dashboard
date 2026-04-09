@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,62 +15,61 @@ import NavItems from './NavItems'
 const UserDropdown = () => {
 
   const router = useRouter()
-  const handlesignout =() => {
+  const handlesignout = () => {
     router.push("/sign-in")
   }
 
-  const user ={name:"Abbas",email:"Abbas@.com"};
-
+  const user = { name: "Abbas", email: "Abbas@.com" };
 
   return (
     <DropdownMenu>
-    <DropdownMenuTrigger asChild className=''> 
+      <DropdownMenuTrigger asChild className=''>
         <Button variant="ghost" className='flex items-center gap-3 text-gray-400 hover:text-yellow-500' >
-            <Avatar className='h-8 w-8'>
-                <AvatarImage src="https://github.com/shadcn.png" />
-                <AvatarFallback className='bg-yellow-500 text-yellow-900 text-sm font-bold '>
-                    {user.name[0]}
-                </AvatarFallback>
-            </Avatar>
-            <div className='hidden md:flex flex-col items-start'>
-                <span className='text-base font-medium text-gray-400'>
-                    {user.name}
-                </span>
-            </div>
+          <Avatar className='h-8 w-8'>
+            <AvatarImage src="https://github.com/shadcn.png" />
+            <AvatarFallback className='bg-yellow-500 text-yellow-900 text-sm font-bold '>
+              {user.name[0]}
+            </AvatarFallback>
+          </Avatar>
+          <div className='hidden md:flex flex-col items-start'>
+            <span className='text-base font-medium text-gray-400'>
+              {user.name}
+            </span>
+          </div>
         </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent className='text-gray-50'>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className='text-gray-50'>
         <DropdownMenuLabel>
-        <div className='flex relative items-center gap-3 py-2'>
+          <div className='flex relative items-center gap-3 py-2'>
             <Avatar className='h-8 w-8'>
-                <AvatarImage src="https://github.com/shadcn.png" />
-                <AvatarFallback className='bg-yellow-500 text-yellow-900 text-sm font-bold '>
-                    {user.name[0]}
-                </AvatarFallback>
+              <AvatarImage src="https://github.com/shadcn.png" />
+              <AvatarFallback className='bg-yellow-500 text-yellow-900 text-sm font-bold '>
+                {user.name[0]}
+              </AvatarFallback>
             </Avatar>
             <div className='flex flex-col'>
-                <span className='text-base font-medium text-gray-400'>
-                    {user.name}
-                </span>
-                <span>{user.email}</span>
+              <span className='text-base font-medium text-gray-400'>
+                {user.name}
+              </span>
+              <span>{user.email}</span>
             </div>
-        </div>
+          </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator className='bg-gray-600'/>
-        
+        <DropdownMenuSeparator className='bg-gray-600' />
+
         <DropdownMenuItem onClick={handlesignout} className='text-gray-100 text-md font-medium focus:bg-transparent focus:text-yellow-500 transition-colors cursor-pointer'>
-            <LogOut className='h-4 w-4 mr-2 hidden sm:block' />
-                LogOut 
+          <LogOut className='h-4 w-4 mr-2 hidden sm:block' />
+          LogOut
         </DropdownMenuItem>
 
-        <DropdownMenuSeparator className='hidden sm:block bg-green-600 '/>
+        <DropdownMenuSeparator className='hidden sm:block bg-green-600 ' />
         <nav className='sm:hidden'>
-            <NavItems />
+          <NavItems />
         </nav>
 
-    </DropdownMenuContent>
+      </DropdownMenuContent>
     </DropdownMenu>
-    
+
   )
 }
 

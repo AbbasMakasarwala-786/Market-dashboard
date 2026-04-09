@@ -5,7 +5,7 @@ export const NAV_ITEMS = [
   { href: "/live", label: "Nifty 50 Live Forecast" },
 ];
 
-export const STOCK_LIST = [
+export const stock_LIST = [
   "ADANIENT",
   "ADANIPORTS",
   "APOLLOHOSP",
@@ -240,7 +240,7 @@ export const MARKET_DATA_WIDGET_CONFIG = {
   width: "100%",
   height: 600,
 
-  // title: 'Stocks',
+  // title: 'stocks',
   // width: '100%',
   // height: 600,
   // locale: 'en',
@@ -377,7 +377,7 @@ export const COMPANY_FINANCIALS_WIDGET_CONFIG = (symbol: string) => ({
   largeChartUrl: "",
 });
 
-export const POPULAR_STOCK_SYMBOLS = [
+export const POPULAR_stock_SYMBOLS = [
   // Tech Giants (the big technology companies)
   "AAPL",
   "MSFT",
@@ -397,7 +397,7 @@ export const POPULAR_STOCK_SYMBOLS = [
   "PYPL",
   "UBER",
   "ZOOM",
-  "stock",
+  "SPOT",
   "SQ",
   "SHOP",
   "ROKU",
